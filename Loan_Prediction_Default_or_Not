@@ -1,0 +1,178 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Sep 18 14:28:53 2022
+
+@author: Ronald Chitauro
+"""
+
+# %%
+import pandas as pd
+import numpy as np
+
+import tensorflow as tf
+import keras
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import Adam
+
+from sklearn import datasets
+from sklearn.model_selection import train_test_split
+
+from sklearn import preprocessing #for normalizing the data
+
+
+# %%
+#For me to see all the columns in my pandas data extraction
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+
+# %%
+#Extracting the data
+LoanDF = pd.read_csv("Loan_Default.csv")
+LoanDF.head()
+
+# %%
+#removing inapt columns that do not help with prediction
+
+LoanDF.columns
+LoanDF = LoanDF.drop('ID',axis=1)
+LoanDF = LoanDF.drop('open_credit', axis=1)
+LoanDF = LoanDF.drop('year', axis=1)
+#LoanDF = LoanDF.drop('income', axis=1) #different for everyone
+LoanDF = LoanDF.drop('Credit_Score', axis=1) #different for everyone
+LoanDF = LoanDF.drop('LTV', axis=1) #different for everyone
+LoanDF = LoanDF.drop('submission_of_application', axis=1) #Too much missing data
+
+
+#%%
+
+#One hot encoding the categorical data
+LoanDF.columns
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['loan_limit'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['Gender'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['approv_in_adv'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['loan_type'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['loan_purpose'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['Credit_Worthiness'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['business_or_commercial'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['Neg_ammortization'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['interest_only'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['lump_sum_payment'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['construction_type'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['occupancy_type'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['Secured_by'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['total_units'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['credit_type'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['co-applicant_credit_type'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['age'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['Region'], drop_first=True)], axis=1)
+LoanDF = pd.concat([LoanDF,pd.get_dummies(LoanDF['Security_Type'], drop_first=True)], axis=1)
+LoanDF.head(3)
+
+#deleting the one-hot-encoded columns
+LoanDF = LoanDF.drop('loan_limit',axis=1)
+LoanDF = LoanDF.drop('Gender',axis=1)
+LoanDF = LoanDF.drop('approv_in_adv',axis=1)
+LoanDF = LoanDF.drop('loan_type',axis=1)
+LoanDF = LoanDF.drop('loan_purpose',axis=1)
+LoanDF = LoanDF.drop('Credit_Worthiness',axis=1)
+LoanDF = LoanDF.drop('business_or_commercial',axis=1)
+LoanDF = LoanDF.drop('Neg_ammortization',axis=1)
+LoanDF = LoanDF.drop('interest_only',axis=1)
+LoanDF = LoanDF.drop('lump_sum_payment',axis=1)
+LoanDF = LoanDF.drop('construction_type',axis=1)
+LoanDF = LoanDF.drop('occupancy_type',axis=1)
+LoanDF = LoanDF.drop('Secured_by',axis=1)
+LoanDF = LoanDF.drop('total_units',axis=1)
+LoanDF = LoanDF.drop('credit_type',axis=1)
+LoanDF = LoanDF.drop('co-applicant_credit_type',axis=1)
+LoanDF = LoanDF.drop('age',axis=1) 
+LoanDF = LoanDF.drop('Region',axis=1)
+LoanDF = LoanDF.drop('Security_Type',axis=1)
+
+
+
+# %% Dealing with missing data
+#deleting comumns with a lot of missing data
+
+#finding the percentages of missing data
+percent_missing = LoanDF.isnull().sum() * 100 / len(LoanDF)
+missing_value_LoanDF = pd.DataFrame({'column_name': LoanDF.columns, 'percent_missing': percent_missing})
+missing_value_LoanDF.sort_values('percent_missing', inplace=True) #sorting the values
+missing_value_LoanDF
+
+#deleting above 10% missing data
+LoanDF = LoanDF.drop('property_value',axis=1)
+LoanDF = LoanDF.drop('dtir1',axis=1) 
+LoanDF = LoanDF.drop('rate_of_interest',axis=1)
+LoanDF = LoanDF.drop('Interest_rate_spread',axis=1)
+LoanDF = LoanDF.drop('Upfront_charges',axis=1)
+LoanDF = LoanDF.drop('term',axis=1)
+
+#Linear Interpolation of some missing Data
+LoanDF.interpolate(method ='linear', limit_direction ='backward', limit = 1)
+
+#dropping NA values left over
+LoanDF.dropna(subset=['income'], inplace=True)
+
+#finding the percentages of missing data - Again
+percent_missing = LoanDF.isnull().sum() * 100 / len(LoanDF)
+missing_value_LoanDF = pd.DataFrame({'column_name': LoanDF.columns, 'percent_missing': percent_missing})
+missing_value_LoanDF.sort_values('percent_missing', inplace=True) #sorting the values
+missing_value_LoanDF
+
+
+
+# %%
+
+# Seperating the data into the Traning and Testing Set
+# Choosing the Target and Feature Variables
+# Normalizing the data
+
+y = LoanDF['Status']
+X =  LoanDF.drop('Status',axis=1)
+
+X.head(3)
+y.head(6)
+
+
+min_max_scaler = preprocessing.MinMaxScaler()
+X = min_max_scaler.fit_transform(X) #This turns the data into np
+X = pd.DataFrame(X) #turning the data back into a pandas DF
+X.head(5)
+
+#Splitting the data into training and testing set
+ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42)
+
+# %%
+
+#Sequential model and add a Dense layer as the first layer
+Loanmodel = Sequential()
+#Input Layer
+Loanmodel.add(keras.Input(shape=(38,))) #input layer
+
+#Hidden Layers
+Loanmodel.add(keras.layers.Dense(100, activation='softmax'))
+Loanmodel.add(keras.layers.Dense(50, activation='relu'))
+#Loanmodel.add(keras.layers.Dense(12, activation='sigmoid'))
+
+#Output Layer
+Loanmodel.add(keras.layers.Dense(1, activation='sigmoid'))
+
+
+#Compiling
+Loanmodel.compile(optimizer='adam', loss='categorical_crossentropy', metrics='accuracy')
+
+#Fitting
+Loanmodel.fit(X_train, y_train, batch_size=1000, epochs=100)
+
+
+#Predicting 
+y_pred = Loanmodel.predict(X_test)
+y_pred
+
+
+
+from sklearn.metrics import accuracy_score
+print(accuracy_score( y_test, y_pred))
+
